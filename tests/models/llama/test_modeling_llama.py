@@ -17,7 +17,7 @@ import unittest
 
 import pytest
 
-from transformers import AutoTokenizer, StaticCache, is_torch_available
+from transformers import AutoTokenizer, LlamaConfig, StaticCache, is_torch_available
 from transformers.generation.configuration_utils import GenerationConfig
 from transformers.testing_utils import (
     Expectations,
@@ -56,6 +56,27 @@ class LlamaModelTest(CausalLMModelTest, unittest.TestCase):
 
     # used in `test_torch_compile_for_training`
     _torch_compile_train_cls = LlamaForCausalLM if is_torch_available() else None
+
+    def test_non_divisible_hidden_size_requires_explicit_head_dim(self):
+        with self.assertRaisesRegex(ValueError, "no `head_dim` was provided"):
+            LlamaConfig(hidden_size=32, num_attention_heads=3)
+
+    def test_explicit_head_dim_supports_non_divisible_hidden_size(self):
+        config = LlamaConfig(
+            vocab_size=99,
+            hidden_size=32,
+            intermediate_size=64,
+            num_hidden_layers=1,
+            num_attention_heads=3,
+            num_key_value_heads=1,
+            head_dim=10,
+        )
+        model = LlamaForCausalLM(config)
+
+        self.assertEqual(model.model.layers[0].self_attn.q_proj.weight.shape, (30, 32))
+        self.assertEqual(model.model.layers[0].self_attn.k_proj.weight.shape, (10, 32))
+        self.assertEqual(model.model.layers[0].self_attn.v_proj.weight.shape, (10, 32))
+        self.assertEqual(model.model.layers[0].self_attn.o_proj.weight.shape, (32, 30))
 
 
 @require_torch_accelerator

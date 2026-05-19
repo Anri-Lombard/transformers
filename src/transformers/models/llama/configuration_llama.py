@@ -106,19 +106,16 @@ class LlamaConfig(PreTrainedConfig):
 
     def __post_init__(self, **kwargs):
         if self.head_dim is None:
+            if self.hidden_size % self.num_attention_heads != 0:
+                raise ValueError(
+                    f"The hidden size ({self.hidden_size}) is not a multiple of the number of attention "
+                    f"heads ({self.num_attention_heads}) and no `head_dim` was provided."
+                )
             self.head_dim = self.hidden_size // self.num_attention_heads
         if self.num_key_value_heads is None:
             self.num_key_value_heads = self.num_attention_heads
 
         super().__post_init__(**kwargs)
-
-    def validate_architecture(self):
-        """Part of `@strict`-powered validation. Validates the architecture of the config."""
-        if self.hidden_size % self.num_attention_heads != 0:
-            raise ValueError(
-                f"The hidden size ({self.hidden_size}) is not a multiple of the number of attention "
-                f"heads ({self.num_attention_heads})."
-            )
 
 
 __all__ = ["LlamaConfig"]
